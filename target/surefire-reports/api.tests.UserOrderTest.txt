@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: api.tests.UserOrderTest
+-------------------------------------------------------------------------------
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.77 s - in api.tests.UserOrderTest

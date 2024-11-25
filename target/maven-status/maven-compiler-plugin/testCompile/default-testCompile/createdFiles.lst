@@ -1,0 +1,5 @@
+api\tests\UserLoginTest.class
+api\tests\UserUpdateTest.class
+api\tests\OrderCreationTest.class
+api\tests\UserCreationTest.class
+api\tests\UserOrderTest.class
