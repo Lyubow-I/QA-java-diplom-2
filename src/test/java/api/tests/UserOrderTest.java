@@ -1,98 +1,88 @@
 package api.tests;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
-import io.qameta.allure.Step;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
-import io.qameta.allure.junit4.DisplayName;
-import org.junit.After;
-import org.junit.Before;
+import jdk.jfr.Description;
 import org.junit.Test;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
 
 @Epic("User  Management")
 @Feature("User  Orders")
-public class UserOrderTest {
-    private Gson gson;
-    private String email;
-    private String password;
-    private String accessToken;
-    private boolean testPassed;
+public class UserOrderTest extends AllMethods {
 
-    @Before
-    public void setUp() {
-        RestAssured.baseURI = "https://stellarburgers.nomoreparties.site";
-        gson = new GsonBuilder().setPrettyPrinting().create();
-        email = "testuser_" + System.currentTimeMillis() + "@gmail.com";
-        password = "password123";
-        createUser (email, password);
-        accessToken = loginAndGetToken(email, password);
+    private AllMethods methodsUserLogin = new AllMethods();
+
+    @Test
+    @Description("Создание заказа с авторизацией и с ингредиентами")
+    public void createOrderWithAuthorization() {
+        String email = generateUniqueEmail();
+        String password = generateUniquePassword();
+        String name = generateUniqueName();
+        Response createUserResponse = createUniqueUser(email, password, name);
+        createUserResponse.then().statusCode(200);
+        Response loginResponse = loginWithUser(email, password, name);
+        loginResponse.then().statusCode(200);
+        String accessToken = loginResponse.jsonPath().getString("accessToken");
+        Response orderResponse = AllMethods.createOrderWithIngredients(accessToken);
+        orderResponse.then().log().all();
+        AllMethods.verifyOrderCreation(orderResponse);
+        deleteUserByToken(accessToken);
     }
 
-    @After
-    public void tearDown() {
-        if (testPassed) {
-            System.out.println("Пользователь удален: " + email);
-        } else {
-            System.out.println("Пользователь не удален: " + email);
+    @Test
+    @Description("Создание заказа с авторизацией но без ингредиентов")
+    public void createOrderWithAuthorizationAndNoIngredients() {
+        String email = generateUniqueEmail();
+        String password = generateUniquePassword();
+        String name = generateUniqueName();
+        Response createUserResponse = createUniqueUser(email, password, name);
+        createUserResponse.then().statusCode(200);
+        Response loginResponse = loginWithUser(email, password, name);
+        loginResponse.then().statusCode(200);
+        String accessToken = loginResponse.jsonPath().getString("accessToken");
+        Response orderResponse = AllMethods.createOrderWitNoIngredients(accessToken);
+        orderResponse.then().log().all();
+        AllMethods.verifyOrderCreationNoIngredients(orderResponse);
+        deleteUserByToken(accessToken);
+    }
+    @Test
+    @Description("Создание заказа без авторизации, с ингредиентами")
+    public void createOrderWithNoAuthorization() {
+        Response orderResponse = AllMethods.createOrderWithoutAuthorization();
+        orderResponse.then().log().all();
+        AllMethods.verifyOrderCreationUnauthorized(orderResponse);
+    }
+    @Test
+    @Description("Создание заказа без авторизации и без ингредиентов")
+    public void createOrderWithNoAuthorizationAndIngredients() {
+        Response orderResponseWithoutAuthorization = AllMethods.createOrderWithoutAuthorizationAndIngredients();
+        orderResponseWithoutAuthorization.then().log().all();
+        AllMethods.verifyOrderCreationNoIngredientsUnauthorized(orderResponseWithoutAuthorization);
+        Response orderResponseWithoutIngredients = AllMethods.createOrderWithoutAuthorizationAndIngredients();
+        AllMethods.verifyOrderCreationNoAuthorizedAndNoIngredients(orderResponseWithoutIngredients);
+    }
+    @Test
+    @Description("Создание заказа с неверным хешем ингредиентов")
+    public void createOrderWithInvalidIngredientsHash() {
+        String email = generateUniqueEmail();
+        String password = generateUniquePassword();
+        String name = generateUniqueName();
+        Response createUserResponse = createUniqueUser(email, password, name);
+        createUserResponse.then().statusCode(200);
+        Response loginResponse = loginWithUser(email, password, name);
+        loginResponse.then().statusCode(200);
+        String accessToken = loginResponse.jsonPath().getString("accessToken");
+        try {
+            Response orderResponse = AllMethods.createOrderWithInvalidIngredientsHash(accessToken);
+            orderResponse.then().log().all();
+            AllMethods.verifyOrderCreationInvalidIngredientsHash(orderResponse);
+            orderResponse.then().statusCode(400);
+        } catch (Exception e) {
+
+            System.out.println("Ошибка при создании заказа: " + e.getMessage());
+        } finally {
+            deleteUserByToken(accessToken);
         }
-    }
-
-    private void createUser (String email, String password) {
-        String body = "{ \"email\": \"" + email + "\", \"password\": \"" + password + "\", \"name\": \"Test User\" }";
-        Response response = RestAssured.given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .when()
-                .post("/api/auth/register");
-        assertThat(response.getStatusCode(), is(200));
-        System.out.println("Пользователь успешно создан: " + email);
-    }
-
-    private String loginAndGetToken(String email, String password) {
-        String loginBody = "{ \"email\": \"" + email + "\", \"password\": \"" + password + "\" }";
-        Response loginResponse = RestAssured.given()
-                .header("Content-Type", "application/json")
-                .body(loginBody)
-                .when()
-                .post("/api/auth/login");
-
-        assertThat(loginResponse.getStatusCode(), is(200));
-        assertThat(loginResponse.jsonPath().getBoolean("success"), is(true));
-        return loginResponse.jsonPath().getString("accessToken");
-    }
-
-    @Test
-    @DisplayName("Получение заказов авторизованного пользователя")
-    @Step
-    public void getOrdersAsAuthorizedUser () {
-        testPassed = true;
-        Response response = RestAssured.given()
-                .header("Authorization", accessToken)
-                .when()
-                .get("/api/orders");
-
-        assertThat(response.getStatusCode(), is(200));
-        assertThat(response.jsonPath().getBoolean("success"), is(true));
-    }
-
-    @Test
-    @DisplayName("Получение заказов неавторизованного пользователя")
-    @Step
-    public void getOrdersAsUnauthorizedUser () {
-        testPassed = true;
-        Response response = RestAssured.given()
-                .when()
-                .get("/api/orders");
-
-        assertThat(response.getStatusCode(), is(401));
-        assertThat(response.jsonPath().getBoolean("success"), is(false));
-        assertThat(response.jsonPath().getString("message"), is("You should be authorised"));
     }
 }
 
