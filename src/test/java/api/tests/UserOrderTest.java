@@ -3,85 +3,90 @@ package api.tests;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.restassured.response.Response;
-import jdk.jfr.Description;
 import org.junit.Test;
-
+import io.qameta.allure.Description;
 @Epic("User  Management")
 @Feature("User  Orders")
-public class UserOrderTest extends AllMethods {
-
-    private AllMethods methodsUserLogin = new AllMethods();
+public class UserOrderTest extends BeforeAndAfter {
+    private MethodsOrders methodsOrders;
+    private MethodsUser  methodsUser ;
+    private Utils utils;
+    public UserOrderTest() {
+        methodsOrders = new MethodsOrders();
+        methodsUser  = new MethodsUser ();
+        utils = new Utils();
+    }
 
     @Test
     @Description("Создание заказа с авторизацией и с ингредиентами")
     public void createOrderWithAuthorization() {
-        String email = generateUniqueEmail();
-        String password = generateUniquePassword();
-        String name = generateUniqueName();
-        Response createUserResponse = createUniqueUser(email, password, name);
+        String email = methodsUser.generateUniqueEmail();
+        String password = methodsUser.generateUniquePassword();
+        String name = methodsUser.generateUniqueName();
+        Response createUserResponse = methodsUser.createUniqueUser(email, password, name);
         createUserResponse.then().statusCode(200);
-        Response loginResponse = loginWithUser(email, password, name);
+        Response loginResponse = methodsUser.loginWithUser(email, password);
         loginResponse.then().statusCode(200);
         String accessToken = loginResponse.jsonPath().getString("accessToken");
-        Response orderResponse = AllMethods.createOrderWithIngredients(accessToken);
+        Response orderResponse = methodsOrders.createOrderWithIngredients(accessToken);
         orderResponse.then().log().all();
-        AllMethods.verifyOrderCreation(orderResponse);
-        deleteUserByToken(accessToken);
+        methodsOrders.verifyOrderCreation(orderResponse);
+
     }
 
     @Test
     @Description("Создание заказа с авторизацией но без ингредиентов")
     public void createOrderWithAuthorizationAndNoIngredients() {
-        String email = generateUniqueEmail();
-        String password = generateUniquePassword();
-        String name = generateUniqueName();
-        Response createUserResponse = createUniqueUser(email, password, name);
+        String email = methodsUser.generateUniqueEmail();
+        String password = methodsUser.generateUniquePassword();
+        String name = methodsUser.generateUniqueName();
+        Response createUserResponse = methodsUser.createUniqueUser(email, password, name);
         createUserResponse.then().statusCode(200);
-        Response loginResponse = loginWithUser(email, password, name);
+        Response loginResponse = methodsUser.loginWithUser(email, password);
         loginResponse.then().statusCode(200);
         String accessToken = loginResponse.jsonPath().getString("accessToken");
-        Response orderResponse = AllMethods.createOrderWitNoIngredients(accessToken);
+        Response orderResponse = methodsOrders.createOrderWitNoIngredients(accessToken);
         orderResponse.then().log().all();
-        AllMethods.verifyOrderCreationNoIngredients(orderResponse);
-        deleteUserByToken(accessToken);
+        utils.verifyOrderCreationNoIngredients(orderResponse);
+
     }
     @Test
     @Description("Создание заказа без авторизации, с ингредиентами")
     public void createOrderWithNoAuthorization() {
-        Response orderResponse = AllMethods.createOrderWithoutAuthorization();
+        Response orderResponse = methodsOrders.createOrderWithoutAuthorization();
         orderResponse.then().log().all();
-        AllMethods.verifyOrderCreationUnauthorized(orderResponse);
+        methodsOrders.verifyOrderCreationUnauthorized(orderResponse);
     }
     @Test
     @Description("Создание заказа без авторизации и без ингредиентов")
     public void createOrderWithNoAuthorizationAndIngredients() {
-        Response orderResponseWithoutAuthorization = AllMethods.createOrderWithoutAuthorizationAndIngredients();
+        Response orderResponseWithoutAuthorization = methodsOrders.createOrderWithoutAuthorizationAndIngredients();
         orderResponseWithoutAuthorization.then().log().all();
-        AllMethods.verifyOrderCreationNoIngredientsUnauthorized(orderResponseWithoutAuthorization);
-        Response orderResponseWithoutIngredients = AllMethods.createOrderWithoutAuthorizationAndIngredients();
-        AllMethods.verifyOrderCreationNoAuthorizedAndNoIngredients(orderResponseWithoutIngredients);
+        utils.verifyOrderCreationNoIngredientsUnauthorized(orderResponseWithoutAuthorization);
+        Response orderResponseWithoutIngredients = methodsOrders.createOrderWithoutAuthorizationAndIngredients();
+        utils.verifyOrderCreationNoAuthorizedAndNoIngredients(orderResponseWithoutIngredients);
     }
     @Test
     @Description("Создание заказа с неверным хешем ингредиентов")
     public void createOrderWithInvalidIngredientsHash() {
-        String email = generateUniqueEmail();
-        String password = generateUniquePassword();
-        String name = generateUniqueName();
-        Response createUserResponse = createUniqueUser(email, password, name);
+        String email = methodsUser.generateUniqueEmail();
+        String password = methodsUser.generateUniquePassword();
+        String name = methodsUser.generateUniqueName();
+        Response createUserResponse = methodsUser.createUniqueUser(email, password, name);
         createUserResponse.then().statusCode(200);
-        Response loginResponse = loginWithUser(email, password, name);
+        Response loginResponse = MethodsUser.loginWithUser(email, password);
         loginResponse.then().statusCode(200);
         String accessToken = loginResponse.jsonPath().getString("accessToken");
         try {
-            Response orderResponse = AllMethods.createOrderWithInvalidIngredientsHash(accessToken);
+            Response orderResponse = MethodsOrders.createOrderWithInvalidIngredientsHash(accessToken);
             orderResponse.then().log().all();
-            AllMethods.verifyOrderCreationInvalidIngredientsHash(orderResponse);
+            MethodsOrders.verifyOrderCreationInvalidIngredientsHash(orderResponse);
             orderResponse.then().statusCode(400);
         } catch (Exception e) {
 
             System.out.println("Ошибка при создании заказа: " + e.getMessage());
         } finally {
-            deleteUserByToken(accessToken);
+            methodsUser.deleteUserByToken(accessToken);
         }
     }
 }
